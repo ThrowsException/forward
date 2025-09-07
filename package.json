@@ -11,6 +11,11 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@aws-cdk/toolkit-lib": "^1.8.0"
+    "@aws-cdk/toolkit-lib": "^1.8.0",
+    "aws-cdk-lib": "^2.38.0",
+    "constructs": "^10.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
   }
 }
