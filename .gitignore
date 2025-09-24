@@ -143,3 +143,5 @@ vite.config.ts.timestamp-*
 # cdk
 cdk.out/
 cdk.context.json
+
+volume/
