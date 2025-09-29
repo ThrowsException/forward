@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
@@ -13,7 +13,7 @@
 		// Check if we're not already in the middle of OAuth flow
 		const urlParams = new URLSearchParams(window.location.search);
 		const code = urlParams.get('code');
-		
+
 		if (!code) {
 			goto('/subscription');
 		}
@@ -36,7 +36,7 @@
 			.replace(/=/g, '');
 	}
 
-	async function generateCodeChallenge(verifier) {
+	async function generateCodeChallenge(verifier: string) {
 		const encoder = new TextEncoder();
 		const data = encoder.encode(verifier);
 		const digest = await crypto.subtle.digest('SHA-256', data);
@@ -73,7 +73,7 @@
 		}
 	});
 
-	async function exchangeCodeForToken(code) {
+	async function exchangeCodeForToken(code: string) {
 		authStatus = 'Exchanging code for token...';
 
 		const tenant = 'b91098dd-a998-44c7-80fc-e70c0a9672ed';
@@ -120,7 +120,7 @@
 				console.error('Token exchange error:', error);
 			}
 		} catch (error) {
-			authStatus = `Error: ${error.message}`;
+			authStatus = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
 			console.error('Token exchange error:', error);
 		}
 	}
@@ -129,10 +129,10 @@
 		// Generate PKCE parameters
 		codeVerifier = generateCodeVerifier();
 		const codeChallenge = await generateCodeChallenge(codeVerifier);
-		
+
 		// Generate random state parameter
 		const state = generateState();
-		
+
 		// Store code verifier and state in sessionStorage for later use
 		sessionStorage.setItem('code_verifier', codeVerifier);
 		sessionStorage.setItem('oauth_state', state);
