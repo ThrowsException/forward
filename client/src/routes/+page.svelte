@@ -46,14 +46,29 @@
 			.replace(/=/g, '');
 	}
 
+	// Generate random state parameter for OAuth security
+	function generateState() {
+		const array = new Uint8Array(16);
+		crypto.getRandomValues(array);
+		return btoa(String.fromCharCode(...array))
+			.replace(/\+/g, '-')
+			.replace(/\//g, '_')
+			.replace(/=/g, '');
+	}
+
 	onMount(() => {
 		if (browser) {
 			const urlParams = new URLSearchParams(window.location.search);
 			const code = urlParams.get('code');
 			const state = urlParams.get('state');
+			const storedState = sessionStorage.getItem('oauth_state');
 
-			if (code && state === '12345') {
+			if (code && state && state === storedState) {
 				exchangeCodeForToken(code);
+				// Clear the stored state after use
+				sessionStorage.removeItem('oauth_state');
+			} else if (code && (!state || state !== storedState)) {
+				authStatus = 'Error: Invalid state parameter';
 			}
 		}
 	});
@@ -115,14 +130,17 @@
 		codeVerifier = generateCodeVerifier();
 		const codeChallenge = await generateCodeChallenge(codeVerifier);
 		
-		// Store code verifier in sessionStorage for later use
+		// Generate random state parameter
+		const state = generateState();
+		
+		// Store code verifier and state in sessionStorage for later use
 		sessionStorage.setItem('code_verifier', codeVerifier);
+		sessionStorage.setItem('oauth_state', state);
 
 		const tenant = 'b91098dd-a998-44c7-80fc-e70c0a9672ed';
 		const clientId = '9e556ddc-fd02-427e-a268-2bde7564f03b';
 		const redirectUri = encodeURIComponent('http://localhost:5173/');
 		const scope = encodeURIComponent('offline_access user.read mail.read');
-		const state = '12345';
 
 		const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&response_mode=query&scope=${scope}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
 
