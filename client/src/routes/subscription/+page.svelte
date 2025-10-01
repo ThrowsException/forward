@@ -9,6 +9,7 @@
 	let loading = false;
 	let error = '';
 	let accessToken = '';
+	let summaries: Record<string, { summary: string; response: string; loading: boolean }> = {};
 
 	onMount(async () => {
 		// Redirect to home if not authenticated
@@ -73,6 +74,13 @@
 			if (response.ok) {
 				const data = await response.json();
 				messages = data.value || [];
+
+				// Generate summaries for each message
+				for (const message of messages) {
+					if (message.id) {
+						generateSummaryAndResponse(message);
+					}
+				}
 			} else {
 				const errorText = await response.text();
 				console.log('Error response body:', errorText);
@@ -87,6 +95,43 @@
 			error = `Error fetching messages: ${err instanceof Error ? err.message : 'Unknown error'}`;
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function generateSummaryAndResponse(message: any) {
+		const messageId = message.id;
+		summaries[messageId] = { summary: '', response: '', loading: true };
+
+		const responsePrompt = [
+			`Reply to the following email. Only generate the response to the email nothing else. Do not include any reasoning or thought`,
+			`[email]`,
+			`${message.body?.content || message.bodyPreview}`,
+			`[/email]`
+		].join('\n')
+
+		try {
+			const responseResponse = await fetch('http://localhost:11434/api/generate', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					model: 'gemma3:1b-it-qat',
+					prompt: responsePrompt,
+					stream: false
+				})
+			});
+
+			if (responseResponse.ok) {
+				const responseData = await responseResponse.json();
+				summaries[messageId].response = responseData.response;
+			}
+		} catch (err) {
+			console.error('Error generating response:', err);
+			summaries[messageId].response = 'Error generating response';
+		} finally {
+			summaries[messageId].loading = false;
+			summaries = { ...summaries }; // Trigger reactivity
 		}
 	}
 
@@ -127,12 +172,23 @@
 							<p style="margin: 0 0 5px 0; color: #888; font-size: 0.8em;">
 								Received: {new Date(message.receivedDateTime).toLocaleString()}
 							</p>
-							{#if message.bodyPreview}
-								<p style="margin: 0; color: #555; font-size: 0.9em;">
-									{message.bodyPreview.substring(0, 200)}{message.bodyPreview.length > 200
-										? '...'
-										: ''}
-								</p>
+							{#if message.body?.content}
+								<div style="margin: 10px 0; color: #555; font-size: 0.9em; border: 1px solid #ddd; padding: 10px; background: #f9f9f9;">
+									{@html message.body.content}
+								</div>
+							{/if}
+
+							{#if summaries[message.id]}
+								<div style="margin-top: 10px; padding: 10px; background: #e8f4f8; border-left: 3px solid #0066cc;">
+									{#if summaries[message.id].loading}
+										<p style="margin: 0; color: #666;">Generating response...</p>
+									{:else}
+										<div>
+											<strong>Suggested Response:</strong>
+											<p style="margin: 5px 0 0 0; white-space: pre-wrap;">{summaries[message.id].response}</p>
+										</div>
+									{/if}
+								</div>
 							{/if}
 						</div>
 					{/each}
