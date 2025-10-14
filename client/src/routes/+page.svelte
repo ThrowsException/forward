@@ -9,54 +9,84 @@
 
 	const auth = getAuthContext();
 	const msal = getMsalContext();
-	let authStatus = 'Not authenticated';
+	let authStatus = $state('Not authenticated');
 	let codeVerifier = '';
 
-	// Check for successful login redirect or existing MSAL token on page load
-	$: if (browser && $msal.isInitialized) {
-		// Check if user just returned from Microsoft login
-		if ($msal.redirectResult?.account) {
-			console.log('Login successful, redirecting to subscription page');
-			goto('/subscription');
-		} else if ($msal.pca && $msal.accountId) {
-			// Check for existing valid token
+	// Check for valid session immediately on mount
+	onMount(async () => {
+		if (!browser) return;
+
+		// Check if MSAL is initialized and has an account
+		if ($msal.isInitialized && $msal.pca && $msal.accountId) {
 			const currentAcc = $msal.pca.getAccountByHomeId($msal.accountId);
 			if (currentAcc) {
-				const tokenRequest = {
-					scopes: ['user.read'],
-					account: currentAcc
-				};
-				$msal.pca.acquireTokenSilent(tokenRequest)
-					.then((response) => {
-						if (response?.accessToken) {
-							goto('/subscription');
-						}
-					})
-					.catch((error) => {
-						console.log('No valid token found:', error);
-					});
+				try {
+					const tokenRequest = {
+						scopes: ['user.read'],
+						account: currentAcc
+					};
+					const response = await $msal.pca.acquireTokenSilent(tokenRequest);
+					if (response?.accessToken) {
+						goto('/subscription');
+					}
+				} catch (error) {
+					console.log('No valid token found on mount:', error);
+				}
 			}
 		}
-	}
+	});
+
+	// Check for successful login redirect or existing MSAL token on page load
+	$effect(() => {
+		if (browser && $msal.isInitialized) {
+			// Check if user just returned from Microsoft login
+			if ($msal.redirectResult?.account) {
+				console.log('Login successful, redirecting to subscription page');
+				goto('/subscription');
+			} else if ($msal.pca && $msal.accountId) {
+				// Check for existing valid token
+				const currentAcc = $msal.pca.getAccountByHomeId($msal.accountId);
+				if (currentAcc) {
+					const tokenRequest = {
+						scopes: ['user.read'],
+						account: currentAcc
+					};
+					$msal.pca.acquireTokenSilent(tokenRequest)
+						.then((response) => {
+							if (response?.accessToken) {
+								goto('/subscription');
+							}
+						})
+						.catch((error) => {
+							console.log('No valid token found:', error);
+						});
+				}
+			}
+		}
+	});
 
 	// Subscribe to auth state changes and redirect if authenticated
-	$: if ($auth.isAuthenticated && browser) {
-		// Check if we're not already in the middle of OAuth flow
-		const urlParams = new URLSearchParams(window.location.search);
-		console.log(window.location.search);
-		const code = urlParams.get('code');
+	$effect(() => {
+		if ($auth.isAuthenticated && browser) {
+			// Check if we're not already in the middle of OAuth flow
+			const urlParams = new URLSearchParams(window.location.search);
+			console.log(window.location.search);
+			const code = urlParams.get('code');
 
-		if (!code) {
-			goto('/subscription');
+			if (!code) {
+				goto('/subscription');
+			}
 		}
-	}
+	});
 
 	// Update status display
-	$: if ($auth.isAuthenticated) {
-		authStatus = `Authenticated! Access token: ${$auth.accessToken.substring(0, 20)}...`;
-	} else {
-		authStatus = 'Not authenticated';
-	}
+	$effect(() => {
+		if ($auth.isAuthenticated) {
+			authStatus = `Authenticated! Access token: ${$auth.accessToken.substring(0, 20)}...`;
+		} else {
+			authStatus = 'Not authenticated';
+		}
+	});
 
 	// Generate PKCE code verifier and challenge
 	function generateCodeVerifier() {
@@ -247,7 +277,7 @@
 
 <div>
 	<p>Status: {authStatus}</p>
-	<button on:click={pcaClick}>Login with Microsoft</button>
-	<!-- <button on:click={handleClick}>Login with Microsoft</button> -->
-	<button on:click={readMail}>Read Mail For User</button>
+	<button onclick={pcaClick}>Login with Microsoft</button>
+	<!-- <button onclick={handleClick}>Login with Microsoft</button> -->
+	<button onclick={readMail}>Read Mail For User</button>
 </div>

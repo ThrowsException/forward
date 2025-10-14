@@ -5,11 +5,11 @@
 	import { InteractionRequiredAuthError } from '@azure/msal-browser';
 
 	const msal = getMsalContext();
-	let messages: any[] = [];
-	let loading = false;
-	let error = '';
-	let accessToken = '';
-	let summaries: Record<string, { summary: string; response: string; loading: boolean }> = {};
+	let messages = $state<any[]>([]);
+	let loading = $state(false);
+	let error = $state('');
+	let accessToken = $state('');
+	let summaries = $state<Record<string, { summary: string; response: string; loading: boolean }>>({});
 
 	onMount(async () => {
 		// Redirect to home if not authenticated
@@ -158,10 +158,10 @@
 				<p>Loading messages...</p>
 			{:else if error}
 				<p style="color: red;">{error}</p>
-				<button on:click={fetchMessages}>Retry</button>
+				<button onclick={fetchMessages}>Retry</button>
 			{:else if messages.length > 0}
 				<div style="max-height: 600px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
-					{#each messages as message}
+					{#each messages as message (message.id)}
 						<div style="border-bottom: 1px solid #eee; padding: 10px 0;">
 							<h4 style="margin: 0 0 5px 0;">{message.subject || '(No Subject)'}</h4>
 							<p style="margin: 0 0 5px 0; color: #666; font-size: 0.9em;">
@@ -200,7 +200,7 @@
 		</div>
 
 		<div style="margin-top: 30px;">
-			<button on:click={logout}>Logout</button>
+			<button onclick={logout}>Logout</button>
 		</div>
 	</div>
 {:else}
